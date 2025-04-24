@@ -1,0 +1,2785 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "19af21fc",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:15.992131Z",
+     "iopub.status.busy": "2025-04-23T19:59:15.991880Z",
+     "iopub.status.idle": "2025-04-23T19:59:15.998140Z",
+     "shell.execute_reply": "2025-04-23T19:59:15.997619Z"
+    },
+    "papermill": {
+     "duration": 0.013543,
+     "end_time": "2025-04-23T19:59:15.999247",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:15.985704",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    print(ds)                              # 14 149 rows, split \"train\"\n",
+    "    print(ds['train'].features)            # usually only {'image': Image()}\n",
+    "    sample_img = ds['train'][0]['image']\n",
+    "    print(\"Local cache path ↴\", sample_img.filename)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "1b5b3512",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.008733Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.008560Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.011713Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.011207Z"
+    },
+    "papermill": {
+     "duration": 0.009233,
+     "end_time": "2025-04-23T19:59:16.013088",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.003855",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "from pathlib import Path\n",
+    "import random"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "5e2097a4",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.023107Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.022932Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.026346Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.025830Z"
+    },
+    "papermill": {
+     "duration": 0.009948,
+     "end_time": "2025-04-23T19:59:16.027274",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.017326",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    # Path to your dataset\n",
+    "    base_path = Path(\"/kaggle/input/weapon-dataset2/datasets/usrt_raw/weapons_images_2fps/Images\")\n",
+    "    \n",
+    "    # Example: list image files\n",
+    "    image_files = list((base_path / \"Images\").glob(\"*.jpg\"))\n",
+    "    print(\"Sample image files:\", image_files[:5])\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "f52bdfbb",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.036175Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.035992Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.040132Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.039642Z"
+    },
+    "papermill": {
+     "duration": 0.00976,
+     "end_time": "2025-04-23T19:59:16.041112",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.031352",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    # Does the extracted folder already contain XML?\n",
+    "    extract_to = Path('/kaggle/input/weapon-dataset2/datasets/usrt_raw/weapons_images_2fps/Images')\n",
+    "    xml_files = list(extract_to.rglob(\"*.xml\"))\n",
+    "    \n",
+    "    if not xml_files:\n",
+    "        print(\"🔍  No XML found – downloading annotations from GitHub …\")\n",
+    "        import requests, io, tarfile\n",
+    "        url = \"https://github.com/Deepknowledge-US/US-Real-time-gun-detection-in-CCTV-An-open-problem-dataset/raw/main/annotations.tar.gz\"\n",
+    "        tgz = requests.get(url, stream=True).content\n",
+    "        with tarfile.open(fileobj=io.BytesIO(tgz), mode=\"r:gz\") as tar:\n",
+    "            tar.extractall(extract_to)             # creates annotations/ with XML\n",
+    "        xml_files = list(extract_to.rglob(\"*.xml\"))\n",
+    "    print(\"💾  XML files:\", len(xml_files))\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "1c1aa511",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.050099Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.049927Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.054121Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.053607Z"
+    },
+    "papermill": {
+     "duration": 0.009841,
+     "end_time": "2025-04-23T19:59:16.055132",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.045291",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    IMG_EXTS  = {'.jpg', '.jpeg', '.png'}\n",
+    "    all_imgs  = [p for p in extract_to.rglob('*') if p.suffix.lower() in IMG_EXTS]\n",
+    "    print(\"🖼️  Total images:\", len(all_imgs))\n",
+    "    \n",
+    "    random.seed(42)\n",
+    "    val_idx = set(random.sample(range(len(all_imgs)), int(0.2*len(all_imgs))))\n",
+    "    \n",
+    "    yolo_root = Path(\"/kaggle/input/weapon-dataset2/datasets/usrt_yolo\")\n",
+    "    for s in (\"images/train\",\"images/val\",\"labels/train\",\"labels/val\"):\n",
+    "        (yolo_root/s).mkdir(parents=True, exist_ok=True)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "efec4462",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.063995Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.063820Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.071494Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.071038Z"
+    },
+    "papermill": {
+     "duration": 0.013265,
+     "end_time": "2025-04-23T19:59:16.072461",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.059196",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    coco = {\"images\":[], \"annotations\":[],\n",
+    "            \"categories\":[{\"id\":0,\"name\":\"gun\"}, {\"id\":1,\"name\":\"rifle\"}, {\"id\":2,\"name\":\"knife\"}]}\n",
+    "    ann_id = 1\n",
+    "    \n",
+    "    for i, img_path in enumerate(tqdm(all_imgs, desc=\"Converting\")):\n",
+    "        split = \"val\" if i in val_idx else \"train\"\n",
+    "        dst_img = yolo_root/f\"images/{split}/{img_path.name}\"\n",
+    "        shutil.copy(img_path, dst_img)\n",
+    "    \n",
+    "        xml_path = img_path.with_suffix(\".xml\")\n",
+    "        if not xml_path.exists():               # a few images have no label\n",
+    "            continue\n",
+    "    \n",
+    "        dst_txt = yolo_root/f\"labels/{split}/{img_path.stem}.txt\"\n",
+    "        root = ET.parse(xml_path).getroot()\n",
+    "        w = int(root.findtext(\"size/width\"));  h = int(root.findtext(\"size/height\"))\n",
+    "    \n",
+    "        yolo_lines = []\n",
+    "        for obj in root.findall(\"object\"):\n",
+    "            cls = obj.findtext(\"name\").lower()\n",
+    "            if cls == \"pistol\": cls = \"gun\"\n",
+    "            cls_id = {\"gun\":0,\"rifle\":1,\"knife\":2}.get(cls, 0)\n",
+    "    \n",
+    "            bb = obj.find(\"bndbox\")\n",
+    "            # Ensure bounding box values are converted to integers properly\n",
+    "            xmin, ymin, xmax, ymax = map(lambda x: int(float(bb.findtext(x))), [\"xmin\", \"ymin\", \"xmax\", \"ymax\"])\n",
+    "            # YOLO normalized\n",
+    "            x_c,y_c = (xmin+xmax)/(2*w), (ymin+ymax)/(2*h)\n",
+    "            bw,bh   = (xmax-xmin)/w,      (ymax-ymin)/h\n",
+    "            yolo_lines.append(f\"{cls_id} {x_c:.6f} {y_c:.6f} {bw:.6f} {bh:.6f}\")\n",
+    "    \n",
+    "            # COCO\n",
+    "            coco[\"annotations\"].append({\n",
+    "                \"id\":ann_id,\"image_id\":img_path.name,\"category_id\":cls_id,\n",
+    "                \"bbox\":[xmin,ymin,xmax-xmin,ymax-ymin],\n",
+    "                \"area\":(xmax-xmin)*(ymax-ymin),\"iscrowd\":0})\n",
+    "            ann_id += 1\n",
+    "        dst_txt.write_text(\"\\n\".join(yolo_lines))\n",
+    "        coco[\"images\"].append({\"file_name\":str(dst_img),\"id\":img_path.name,\"width\":w,\"height\":h})\n",
+    "    \n",
+    "    # save COCO\n",
+    "    with open(\"datasets/usrt_coco.json\",\"w\") as f:\n",
+    "        json.dump(coco,f)\n",
+    "    print(\"📄 COCO file written to datasets/usrt_coco.json\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "cbe9e447",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.081370Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.081200Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.086125Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.085623Z"
+    },
+    "papermill": {
+     "duration": 0.010589,
+     "end_time": "2025-04-23T19:59:16.087159",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.076570",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    import cv2, matplotlib.pyplot as plt\n",
+    "    train_imgs = list((yolo_root/'images/train').glob('*'))\n",
+    "    assert train_imgs, \"No training images – something went wrong!\"\n",
+    "    imp = random.choice(train_imgs)\n",
+    "    img = cv2.cvtColor(cv2.imread(str(imp)), cv2.COLOR_BGR2RGB)\n",
+    "    h,w,_ = img.shape\n",
+    "    for line in (yolo_root/'labels/train'/f\"{imp.stem}.txt\").read_text().splitlines():\n",
+    "        cls,x,y,bw,bh = map(float,line.split())\n",
+    "        x1,y1 = int((x-bw/2)*w), int((y-bh/2)*h)\n",
+    "        x2,y2 = int((x+bw/2)*w), int((y+bh/2)*h)\n",
+    "        cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0),2)\n",
+    "    plt.imshow(img); plt.axis('off'); plt.title(imp.name)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "79df1839",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.096110Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.095922Z",
+     "iopub.status.idle": "2025-04-23T19:59:16.100535Z",
+     "shell.execute_reply": "2025-04-23T19:59:16.100071Z"
+    },
+    "papermill": {
+     "duration": 0.01028,
+     "end_time": "2025-04-23T19:59:16.101565",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.091285",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    import cv2, matplotlib.pyplot as plt, random\n",
+    "    im_path = random.choice(list((yolo_root/'images/train').glob('*')))\n",
+    "    im  = cv2.cvtColor(cv2.imread(str(im_path)), cv2.COLOR_BGR2RGB)\n",
+    "    h,w,_ = im.shape\n",
+    "    for line in (yolo_root/'labels/train'/f\"{im_path.stem}.txt\").read_text().splitlines():\n",
+    "        cls,x,y,bw,bh = map(float,line.split())\n",
+    "        x1,y1 = int((x-bw/2)*w), int((y-bh/2)*h)\n",
+    "        x2,y2 = int((x+bw/2)*w), int((y+bh/2)*h)\n",
+    "        cv2.rectangle(im,(x1,y1),(x2,y2),(0,255,0),2)\n",
+    "    plt.imshow(im); plt.axis('off')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "8d2c3f86",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:16.110642Z",
+     "iopub.status.busy": "2025-04-23T19:59:16.110462Z",
+     "iopub.status.idle": "2025-04-23T19:59:19.960167Z",
+     "shell.execute_reply": "2025-04-23T19:59:19.959217Z"
+    },
+    "papermill": {
+     "duration": 3.85652,
+     "end_time": "2025-04-23T19:59:19.962183",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:16.105663",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Requirement already satisfied: opencv-python in /usr/local/lib/python3.11/dist-packages (4.11.0.86)\r\n",
+      "Requirement already satisfied: numpy>=1.21.2 in /usr/local/lib/python3.11/dist-packages (from opencv-python) (1.26.4)\r\n",
+      "Requirement already satisfied: mkl_fft in /usr/local/lib/python3.11/dist-packages (from numpy>=1.21.2->opencv-python) (1.3.8)\r\n",
+      "Requirement already satisfied: mkl_random in /usr/local/lib/python3.11/dist-packages (from numpy>=1.21.2->opencv-python) (1.2.4)\r\n",
+      "Requirement already satisfied: mkl_umath in /usr/local/lib/python3.11/dist-packages (from numpy>=1.21.2->opencv-python) (0.1.1)\r\n",
+      "Requirement already satisfied: mkl in /usr/local/lib/python3.11/dist-packages (from numpy>=1.21.2->opencv-python) (2025.1.0)\r\n",
+      "Requirement already satisfied: tbb4py in /usr/local/lib/python3.11/dist-packages (from numpy>=1.21.2->opencv-python) (2022.1.0)\r\n",
+      "Requirement already satisfied: mkl-service in /usr/local/lib/python3.11/dist-packages (from numpy>=1.21.2->opencv-python) (2.4.1)\r\n",
+      "Requirement already satisfied: intel-openmp<2026,>=2024 in /usr/local/lib/python3.11/dist-packages (from mkl->numpy>=1.21.2->opencv-python) (2024.2.0)\r\n",
+      "Requirement already satisfied: tbb==2022.* in /usr/local/lib/python3.11/dist-packages (from mkl->numpy>=1.21.2->opencv-python) (2022.1.0)\r\n",
+      "Requirement already satisfied: tcmlib==1.* in /usr/local/lib/python3.11/dist-packages (from tbb==2022.*->mkl->numpy>=1.21.2->opencv-python) (1.2.0)\r\n",
+      "Requirement already satisfied: intel-cmplr-lib-rt in /usr/local/lib/python3.11/dist-packages (from mkl_umath->numpy>=1.21.2->opencv-python) (2024.2.0)\r\n",
+      "Requirement already satisfied: intel-cmplr-lib-ur==2024.2.0 in /usr/local/lib/python3.11/dist-packages (from intel-openmp<2026,>=2024->mkl->numpy>=1.21.2->opencv-python) (2024.2.0)\r\n"
+     ]
+    }
+   ],
+   "source": [
+    "!pip install opencv-python"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "ed85c8f4",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:19.972436Z",
+     "iopub.status.busy": "2025-04-23T19:59:19.972199Z",
+     "iopub.status.idle": "2025-04-23T19:59:19.978265Z",
+     "shell.execute_reply": "2025-04-23T19:59:19.977566Z"
+    },
+    "papermill": {
+     "duration": 0.0122,
+     "end_time": "2025-04-23T19:59:19.979282",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:19.967082",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    # 👀 6. Sanity‑check ‑‑ visualise one random training image + labels\n",
+    "    import cv2, random, matplotlib.pyplot as plt\n",
+    "    sample = random.choice(list((yolo_root/'images/train').glob(\"*.jpg\")))\n",
+    "    im = cv2.cvtColor(cv2.imread(str(sample)), cv2.COLOR_BGR2RGB)\n",
+    "    h,w,_ = im.shape\n",
+    "    label_file = yolo_root/'labels/train'/f\"{sample.stem}.txt\"\n",
+    "    for line in label_file.read_text().splitlines():\n",
+    "        cls,x,y,bw,bh = map(float,line.split())\n",
+    "        x1 = int((x-bw/2)*w); y1 = int((y-bh/2)*h)\n",
+    "        x2 = int((x+bw/2)*w); y2 = int((y+bh/2)*h)\n",
+    "        cv2.rectangle(im,(x1,y1),(x2,y2),(0,255,0),2)\n",
+    "    plt.imshow(im); plt.axis('off'); plt.title(sample.name)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "6d53c664",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:19.988474Z",
+     "iopub.status.busy": "2025-04-23T19:59:19.988270Z",
+     "iopub.status.idle": "2025-04-23T19:59:19.993985Z",
+     "shell.execute_reply": "2025-04-23T19:59:19.993250Z"
+    },
+    "papermill": {
+     "duration": 0.011639,
+     "end_time": "2025-04-23T19:59:19.995128",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:19.983489",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    from pathlib import Path\n",
+    "    import shutil\n",
+    "    import random, math\n",
+    "    \n",
+    "    yolo_root = Path(\"/kaggle/input/weapon-dataset2/datasets/usrt_yolo\")\n",
+    "    knife_imgs = list((yolo_root/'images/train').glob('*'))\n",
+    "    knife_imgs = [p for p in knife_imgs\n",
+    "                  if (yolo_root/'labels/train'/f\"{p.stem}.txt\").read_text().startswith(\"2 \")]\n",
+    "    \n",
+    "    dup_factor = math.ceil(2043 / len(knife_imgs)) // 2   # ≈6 ‑> brings knives close to guns\n",
+    "    print(f\"Duplicating each knife image {dup_factor}x …\")\n",
+    "    \n",
+    "    for img_path in knife_imgs:\n",
+    "        label_path = yolo_root/'labels/train'/f\"{img_path.stem}.txt\"\n",
+    "        for k in range(dup_factor):\n",
+    "            # copy image\n",
+    "            dst_img = img_path.with_stem(img_path.stem + f\"_dup{k}\")\n",
+    "            shutil.copy(img_path, dst_img)\n",
+    "            # copy label\n",
+    "            dst_lbl = label_path.with_stem(label_path.stem + f\"_dup{k}\")\n",
+    "            shutil.copy(label_path, dst_lbl)\n",
+    "    \n",
+    "    print(\"🔄  New training set size:\",\n",
+    "          len(list((yolo_root/'images/train').glob('*'))), \"images\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "b64e3b88",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:20.004358Z",
+     "iopub.status.busy": "2025-04-23T19:59:20.004010Z",
+     "iopub.status.idle": "2025-04-23T19:59:20.007899Z",
+     "shell.execute_reply": "2025-04-23T19:59:20.007224Z"
+    },
+    "papermill": {
+     "duration": 0.009599,
+     "end_time": "2025-04-23T19:59:20.008961",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:19.999362",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "# quick class histogram\n",
+    "    from collections import Counter; from pathlib import Path\n",
+    "    cls_hist = Counter()\n",
+    "    for txt in Path('/kaggle/input/weapon-dataset2/datasets/usrt_yolo/images/train').glob('*.txt'):\n",
+    "        for ln in txt.read_text().splitlines():\n",
+    "            cls_hist[int(ln.split()[0])] += 1\n",
+    "    print(cls_hist)    "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f98a0541",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004008,
+     "end_time": "2025-04-23T19:59:20.017246",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:20.013238",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## YOLOv11"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "917a5d04",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T19:59:20.026646Z",
+     "iopub.status.busy": "2025-04-23T19:59:20.025993Z",
+     "iopub.status.idle": "2025-04-23T20:00:35.692944Z",
+     "shell.execute_reply": "2025-04-23T20:00:35.692043Z"
+    },
+    "papermill": {
+     "duration": 75.673074,
+     "end_time": "2025-04-23T20:00:35.694401",
+     "exception": false,
+     "start_time": "2025-04-23T19:59:20.021327",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Collecting ultralytics\r\n",
+      "  Downloading ultralytics-8.3.115-py3-none-any.whl.metadata (37 kB)\r\n",
+      "Requirement already satisfied: numpy<=2.1.1,>=1.23.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (1.26.4)\r\n",
+      "Requirement already satisfied: matplotlib>=3.3.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (3.7.5)\r\n",
+      "Requirement already satisfied: opencv-python>=4.6.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (4.11.0.86)\r\n",
+      "Requirement already satisfied: pillow>=7.1.2 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (11.1.0)\r\n",
+      "Requirement already satisfied: pyyaml>=5.3.1 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (6.0.2)\r\n",
+      "Requirement already satisfied: requests>=2.23.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (2.32.3)\r\n",
+      "Requirement already satisfied: scipy>=1.4.1 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (1.15.2)\r\n",
+      "Requirement already satisfied: torch>=1.8.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (2.5.1+cu124)\r\n",
+      "Requirement already satisfied: torchvision>=0.9.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (0.20.1+cu124)\r\n",
+      "Requirement already satisfied: tqdm>=4.64.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (4.67.1)\r\n",
+      "Requirement already satisfied: psutil in /usr/local/lib/python3.11/dist-packages (from ultralytics) (7.0.0)\r\n",
+      "Requirement already satisfied: py-cpuinfo in /usr/local/lib/python3.11/dist-packages (from ultralytics) (9.0.0)\r\n",
+      "Requirement already satisfied: pandas>=1.1.4 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (2.2.3)\r\n",
+      "Requirement already satisfied: seaborn>=0.11.0 in /usr/local/lib/python3.11/dist-packages (from ultralytics) (0.12.2)\r\n",
+      "Collecting ultralytics-thop>=2.0.0 (from ultralytics)\r\n",
+      "  Downloading ultralytics_thop-2.0.14-py3-none-any.whl.metadata (9.4 kB)\r\n",
+      "Requirement already satisfied: contourpy>=1.0.1 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (1.3.1)\r\n",
+      "Requirement already satisfied: cycler>=0.10 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (0.12.1)\r\n",
+      "Requirement already satisfied: fonttools>=4.22.0 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (4.56.0)\r\n",
+      "Requirement already satisfied: kiwisolver>=1.0.1 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (1.4.8)\r\n",
+      "Requirement already satisfied: packaging>=20.0 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (24.2)\r\n",
+      "Requirement already satisfied: pyparsing>=2.3.1 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (3.2.1)\r\n",
+      "Requirement already satisfied: python-dateutil>=2.7 in /usr/local/lib/python3.11/dist-packages (from matplotlib>=3.3.0->ultralytics) (2.9.0.post0)\r\n",
+      "Requirement already satisfied: mkl_fft in /usr/local/lib/python3.11/dist-packages (from numpy<=2.1.1,>=1.23.0->ultralytics) (1.3.8)\r\n",
+      "Requirement already satisfied: mkl_random in /usr/local/lib/python3.11/dist-packages (from numpy<=2.1.1,>=1.23.0->ultralytics) (1.2.4)\r\n",
+      "Requirement already satisfied: mkl_umath in /usr/local/lib/python3.11/dist-packages (from numpy<=2.1.1,>=1.23.0->ultralytics) (0.1.1)\r\n",
+      "Requirement already satisfied: mkl in /usr/local/lib/python3.11/dist-packages (from numpy<=2.1.1,>=1.23.0->ultralytics) (2025.1.0)\r\n",
+      "Requirement already satisfied: tbb4py in /usr/local/lib/python3.11/dist-packages (from numpy<=2.1.1,>=1.23.0->ultralytics) (2022.1.0)\r\n",
+      "Requirement already satisfied: mkl-service in /usr/local/lib/python3.11/dist-packages (from numpy<=2.1.1,>=1.23.0->ultralytics) (2.4.1)\r\n",
+      "Requirement already satisfied: pytz>=2020.1 in /usr/local/lib/python3.11/dist-packages (from pandas>=1.1.4->ultralytics) (2025.2)\r\n",
+      "Requirement already satisfied: tzdata>=2022.7 in /usr/local/lib/python3.11/dist-packages (from pandas>=1.1.4->ultralytics) (2025.2)\r\n",
+      "Requirement already satisfied: charset-normalizer<4,>=2 in /usr/local/lib/python3.11/dist-packages (from requests>=2.23.0->ultralytics) (3.4.1)\r\n",
+      "Requirement already satisfied: idna<4,>=2.5 in /usr/local/lib/python3.11/dist-packages (from requests>=2.23.0->ultralytics) (3.10)\r\n",
+      "Requirement already satisfied: urllib3<3,>=1.21.1 in /usr/local/lib/python3.11/dist-packages (from requests>=2.23.0->ultralytics) (2.3.0)\r\n",
+      "Requirement already satisfied: certifi>=2017.4.17 in /usr/local/lib/python3.11/dist-packages (from requests>=2.23.0->ultralytics) (2025.1.31)\r\n",
+      "Requirement already satisfied: filelock in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (3.18.0)\r\n",
+      "Requirement already satisfied: typing-extensions>=4.8.0 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (4.13.1)\r\n",
+      "Requirement already satisfied: networkx in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (3.4.2)\r\n",
+      "Requirement already satisfied: jinja2 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (3.1.6)\r\n",
+      "Requirement already satisfied: fsspec in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (2025.3.2)\r\n",
+      "Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.4.127 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (12.4.127)\r\n",
+      "Requirement already satisfied: nvidia-cuda-runtime-cu12==12.4.127 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (12.4.127)\r\n",
+      "Requirement already satisfied: nvidia-cuda-cupti-cu12==12.4.127 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (12.4.127)\r\n",
+      "Collecting nvidia-cudnn-cu12==9.1.0.70 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_cudnn_cu12-9.1.0.70-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)\r\n",
+      "Collecting nvidia-cublas-cu12==12.4.5.8 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_cublas_cu12-12.4.5.8-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)\r\n",
+      "Collecting nvidia-cufft-cu12==11.2.1.3 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_cufft_cu12-11.2.1.3-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)\r\n",
+      "Collecting nvidia-curand-cu12==10.3.5.147 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_curand_cu12-10.3.5.147-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)\r\n",
+      "Collecting nvidia-cusolver-cu12==11.6.1.9 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_cusolver_cu12-11.6.1.9-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)\r\n",
+      "Collecting nvidia-cusparse-cu12==12.3.1.170 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_cusparse_cu12-12.3.1.170-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)\r\n",
+      "Requirement already satisfied: nvidia-nccl-cu12==2.21.5 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (2.21.5)\r\n",
+      "Requirement already satisfied: nvidia-nvtx-cu12==12.4.127 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (12.4.127)\r\n",
+      "Collecting nvidia-nvjitlink-cu12==12.4.127 (from torch>=1.8.0->ultralytics)\r\n",
+      "  Downloading nvidia_nvjitlink_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)\r\n",
+      "Requirement already satisfied: triton==3.1.0 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (3.1.0)\r\n",
+      "Requirement already satisfied: sympy==1.13.1 in /usr/local/lib/python3.11/dist-packages (from torch>=1.8.0->ultralytics) (1.13.1)\r\n",
+      "Requirement already satisfied: mpmath<1.4,>=1.1.0 in /usr/local/lib/python3.11/dist-packages (from sympy==1.13.1->torch>=1.8.0->ultralytics) (1.3.0)\r\n",
+      "Requirement already satisfied: six>=1.5 in /usr/local/lib/python3.11/dist-packages (from python-dateutil>=2.7->matplotlib>=3.3.0->ultralytics) (1.17.0)\r\n",
+      "Requirement already satisfied: MarkupSafe>=2.0 in /usr/local/lib/python3.11/dist-packages (from jinja2->torch>=1.8.0->ultralytics) (3.0.2)\r\n",
+      "Requirement already satisfied: intel-openmp<2026,>=2024 in /usr/local/lib/python3.11/dist-packages (from mkl->numpy<=2.1.1,>=1.23.0->ultralytics) (2024.2.0)\r\n",
+      "Requirement already satisfied: tbb==2022.* in /usr/local/lib/python3.11/dist-packages (from mkl->numpy<=2.1.1,>=1.23.0->ultralytics) (2022.1.0)\r\n",
+      "Requirement already satisfied: tcmlib==1.* in /usr/local/lib/python3.11/dist-packages (from tbb==2022.*->mkl->numpy<=2.1.1,>=1.23.0->ultralytics) (1.2.0)\r\n",
+      "Requirement already satisfied: intel-cmplr-lib-rt in /usr/local/lib/python3.11/dist-packages (from mkl_umath->numpy<=2.1.1,>=1.23.0->ultralytics) (2024.2.0)\r\n",
+      "Requirement already satisfied: intel-cmplr-lib-ur==2024.2.0 in /usr/local/lib/python3.11/dist-packages (from intel-openmp<2026,>=2024->mkl->numpy<=2.1.1,>=1.23.0->ultralytics) (2024.2.0)\r\n",
+      "Downloading ultralytics-8.3.115-py3-none-any.whl (983 kB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m983.5/983.5 kB\u001b[0m \u001b[31m17.6 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_cublas_cu12-12.4.5.8-py3-none-manylinux2014_x86_64.whl (363.4 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m363.4/363.4 MB\u001b[0m \u001b[31m4.7 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_cudnn_cu12-9.1.0.70-py3-none-manylinux2014_x86_64.whl (664.8 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m664.8/664.8 MB\u001b[0m \u001b[31m2.6 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_cufft_cu12-11.2.1.3-py3-none-manylinux2014_x86_64.whl (211.5 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m211.5/211.5 MB\u001b[0m \u001b[31m8.0 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_curand_cu12-10.3.5.147-py3-none-manylinux2014_x86_64.whl (56.3 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m56.3/56.3 MB\u001b[0m \u001b[31m30.6 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_cusolver_cu12-11.6.1.9-py3-none-manylinux2014_x86_64.whl (127.9 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m127.9/127.9 MB\u001b[0m \u001b[31m13.7 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_cusparse_cu12-12.3.1.170-py3-none-manylinux2014_x86_64.whl (207.5 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m207.5/207.5 MB\u001b[0m \u001b[31m8.3 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading nvidia_nvjitlink_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl (21.1 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m21.1/21.1 MB\u001b[0m \u001b[31m85.4 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading ultralytics_thop-2.0.14-py3-none-any.whl (26 kB)\r\n",
+      "Installing collected packages: nvidia-nvjitlink-cu12, nvidia-curand-cu12, nvidia-cufft-cu12, nvidia-cublas-cu12, nvidia-cusparse-cu12, nvidia-cudnn-cu12, nvidia-cusolver-cu12, ultralytics-thop, ultralytics\r\n",
+      "  Attempting uninstall: nvidia-nvjitlink-cu12\r\n",
+      "    Found existing installation: nvidia-nvjitlink-cu12 12.8.93\r\n",
+      "    Uninstalling nvidia-nvjitlink-cu12-12.8.93:\r\n",
+      "      Successfully uninstalled nvidia-nvjitlink-cu12-12.8.93\r\n",
+      "  Attempting uninstall: nvidia-curand-cu12\r\n",
+      "    Found existing installation: nvidia-curand-cu12 10.3.9.90\r\n",
+      "    Uninstalling nvidia-curand-cu12-10.3.9.90:\r\n",
+      "      Successfully uninstalled nvidia-curand-cu12-10.3.9.90\r\n",
+      "  Attempting uninstall: nvidia-cufft-cu12\r\n",
+      "    Found existing installation: nvidia-cufft-cu12 11.3.3.83\r\n",
+      "    Uninstalling nvidia-cufft-cu12-11.3.3.83:\r\n",
+      "      Successfully uninstalled nvidia-cufft-cu12-11.3.3.83\r\n",
+      "  Attempting uninstall: nvidia-cublas-cu12\r\n",
+      "    Found existing installation: nvidia-cublas-cu12 12.8.4.1\r\n",
+      "    Uninstalling nvidia-cublas-cu12-12.8.4.1:\r\n",
+      "      Successfully uninstalled nvidia-cublas-cu12-12.8.4.1\r\n",
+      "  Attempting uninstall: nvidia-cusparse-cu12\r\n",
+      "    Found existing installation: nvidia-cusparse-cu12 12.5.8.93\r\n",
+      "    Uninstalling nvidia-cusparse-cu12-12.5.8.93:\r\n",
+      "      Successfully uninstalled nvidia-cusparse-cu12-12.5.8.93\r\n",
+      "  Attempting uninstall: nvidia-cudnn-cu12\r\n",
+      "    Found existing installation: nvidia-cudnn-cu12 9.3.0.75\r\n",
+      "    Uninstalling nvidia-cudnn-cu12-9.3.0.75:\r\n",
+      "      Successfully uninstalled nvidia-cudnn-cu12-9.3.0.75\r\n",
+      "  Attempting uninstall: nvidia-cusolver-cu12\r\n",
+      "    Found existing installation: nvidia-cusolver-cu12 11.7.3.90\r\n",
+      "    Uninstalling nvidia-cusolver-cu12-11.7.3.90:\r\n",
+      "      Successfully uninstalled nvidia-cusolver-cu12-11.7.3.90\r\n",
+      "\u001b[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\r\n",
+      "pylibcugraph-cu12 24.12.0 requires pylibraft-cu12==24.12.*, but you have pylibraft-cu12 25.2.0 which is incompatible.\r\n",
+      "pylibcugraph-cu12 24.12.0 requires rmm-cu12==24.12.*, but you have rmm-cu12 25.2.0 which is incompatible.\u001b[0m\u001b[31m\r\n",
+      "\u001b[0mSuccessfully installed nvidia-cublas-cu12-12.4.5.8 nvidia-cudnn-cu12-9.1.0.70 nvidia-cufft-cu12-11.2.1.3 nvidia-curand-cu12-10.3.5.147 nvidia-cusolver-cu12-11.6.1.9 nvidia-cusparse-cu12-12.3.1.170 nvidia-nvjitlink-cu12-12.4.127 ultralytics-8.3.115 ultralytics-thop-2.0.14\r\n"
+     ]
+    }
+   ],
+   "source": [
+    "!pip install ultralytics"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "e6b41f9a",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T20:00:35.735967Z",
+     "iopub.status.busy": "2025-04-23T20:00:35.735713Z",
+     "iopub.status.idle": "2025-04-23T20:00:35.767939Z",
+     "shell.execute_reply": "2025-04-23T20:00:35.767246Z"
+    },
+    "papermill": {
+     "duration": 0.05407,
+     "end_time": "2025-04-23T20:00:35.769027",
+     "exception": false,
+     "start_time": "2025-04-23T20:00:35.714957",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Updated data.yaml saved to: /kaggle/working/data.yaml\n"
+     ]
+    }
+   ],
+   "source": [
+    "import yaml\n",
+    "\n",
+    "# Load original data.yaml from Kaggle dataset\n",
+    "yaml_path = \"/kaggle/input/weapon-dataset2/datasets/usrt_yolo/data.yaml\"\n",
+    "\n",
+    "with open(yaml_path, \"r\") as f:\n",
+    "    data_cfg = yaml.safe_load(f)\n",
+    "\n",
+    "# Replace Windows paths with correct Kaggle paths\n",
+    "data_cfg[\"train\"] = \"/kaggle/input/weapon-dataset2/datasets/usrt_yolo/images/train\"\n",
+    "data_cfg[\"val\"]   = \"/kaggle/input/weapon-dataset2/datasets/usrt_yolo/images/val\"\n",
+    "\n",
+    "# Save updated data.yaml to working directory\n",
+    "updated_yaml_path = \"/kaggle/working/data.yaml\"\n",
+    "\n",
+    "with open(updated_yaml_path, \"w\") as f:\n",
+    "    yaml.dump(data_cfg, f)\n",
+    "\n",
+    "print(f\"Updated data.yaml saved to: {updated_yaml_path}\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "7a553cb7",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T20:00:35.810368Z",
+     "iopub.status.busy": "2025-04-23T20:00:35.810182Z",
+     "iopub.status.idle": "2025-04-23T20:00:35.814809Z",
+     "shell.execute_reply": "2025-04-23T20:00:35.814301Z"
+    },
+    "papermill": {
+     "duration": 0.02645,
+     "end_time": "2025-04-23T20:00:35.815838",
+     "exception": false,
+     "start_time": "2025-04-23T20:00:35.789388",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    from ultralytics import YOLO\n",
+    "    import torch\n",
+    "    import albumentations as A\n",
+    "    \n",
+    "    model = YOLO('/kaggle/input/yolo11s/other/default/1/yolo11s.pt')\n",
+    "    \n",
+    "    # define weighting tensor for 3 classes (gun, rifle, knife)\n",
+    "    class_weights = torch.tensor([1.0, 4.0, 10.0], dtype=torch.float32)\n",
+    "    \n",
+    "    # Albumentations pipeline: 10 % Gaussian Blur\n",
+    "    custom_augs = [A.Blur(p=0.1, blur_limit=5)]\n",
+    "    \n",
+    "    # model.train(\n",
+    "    #     data='datasets/usrt_yolo/data.yaml',\n",
+    "    #     epochs=300,\n",
+    "    #     batch=32,\n",
+    "    #     imgsz=640,\n",
+    "    #     hsv_h=0.015, hsv_s=0.7, hsv_v=0.4,\n",
+    "    #     translate=0.20, scale=0.60, fliplr=0.50,\n",
+    "    #     mosaic=1.0, mixup=0.10, copy_paste=0.20,\n",
+    "    #     auto_augment='randaugment',\n",
+    "    #     custom_augs=custom_augs,\n",
+    "    #     class_weights=class_weights,\n",
+    "    # )\n",
+    "    \n",
+    "    model.train(\n",
+    "        data=\"/kaggle/working/data.yaml\",\n",
+    "        epochs=120,\n",
+    "        imgsz=640,\n",
+    "        batch=32,\n",
+    "        device=0,\n",
+    "        optimizer=\"auto\",\n",
+    "        auto_augment=\"randaugment\",  \n",
+    "        seed=42,\n",
+    "        deterministic=True,\n",
+    "        name=\"gun_detection_run1\",\n",
+    "        project=\"cctv_gun_detection\"\n",
+    "    )"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2f819485",
+   "metadata": {
+    "papermill": {
+     "duration": 0.063412,
+     "end_time": "2025-04-23T20:00:35.899242",
+     "exception": false,
+     "start_time": "2025-04-23T20:00:35.835830",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## RT-DETR"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "63767b15",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T20:00:35.940044Z",
+     "iopub.status.busy": "2025-04-23T20:00:35.939780Z",
+     "iopub.status.idle": "2025-04-23T20:00:46.164272Z",
+     "shell.execute_reply": "2025-04-23T20:00:46.163567Z"
+    },
+    "papermill": {
+     "duration": 10.246179,
+     "end_time": "2025-04-23T20:00:46.165334",
+     "exception": false,
+     "start_time": "2025-04-23T20:00:35.919155",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Creating new Ultralytics Settings v0.0.6 file ✅ \n",
+      "View Ultralytics Settings with 'yolo settings' or at '/root/.config/Ultralytics/settings.json'\n",
+      "Update Settings with 'yolo settings key=value', i.e. 'yolo settings runs_dir=path/to/dir'. For help see https://docs.ultralytics.com/quickstart/#ultralytics-settings.\n",
+      "rt-detr-l summary: 449 layers, 32,970,476 parameters, 0 gradients, 108.3 GFLOPs\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "(449, 32970476, 0, 108.3437056)"
+      ]
+     },
+     "execution_count": 16,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "from ultralytics import RTDETR\n",
+    "\n",
+    "# Load the RT-DETR-l model (pretrained on COCO)\n",
+    "model = RTDETR(\"/kaggle/input/rtdetr-l/other/default/1/rtdetr-l.pt\")\n",
+    "\n",
+    "# Optional: show model summary\n",
+    "model.info()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "id": "7cfa864b",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T20:00:46.207841Z",
+     "iopub.status.busy": "2025-04-23T20:00:46.207294Z",
+     "iopub.status.idle": "2025-04-23T20:00:46.419346Z",
+     "shell.execute_reply": "2025-04-23T20:00:46.418769Z"
+    },
+    "papermill": {
+     "duration": 0.23427,
+     "end_time": "2025-04-23T20:00:46.420624",
+     "exception": false,
+     "start_time": "2025-04-23T20:00:46.186354",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "import torch\n",
+    "import gc\n",
+    "\n",
+    "gc.collect()                    # Run garbage collector\n",
+    "torch.cuda.empty_cache()        # Releases all unused memory\n",
+    "torch.cuda.ipc_collect()        # Collects inter-process memory (optional but helpful)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "id": "819a2138",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-23T20:00:46.463992Z",
+     "iopub.status.busy": "2025-04-23T20:00:46.463526Z",
+     "iopub.status.idle": "2025-04-24T04:58:33.074112Z",
+     "shell.execute_reply": "2025-04-24T04:58:33.073351Z"
+    },
+    "papermill": {
+     "duration": 32266.634009,
+     "end_time": "2025-04-24T04:58:33.075546",
+     "exception": false,
+     "start_time": "2025-04-23T20:00:46.441537",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Ultralytics 8.3.115 🚀 Python-3.11.11 torch-2.5.1+cu124 CUDA:0 (Tesla P100-PCIE-16GB, 16269MiB)\n",
+      "\u001b[34m\u001b[1mengine/trainer: \u001b[0mtask=detect, mode=train, model=/kaggle/input/rtdetr-l/other/default/1/rtdetr-l.pt, data=/kaggle/working/data.yaml, epochs=60, time=None, patience=100, batch=18, imgsz=640, save=True, save_period=-1, cache=False, device=0, workers=8, project=cctv_rtdetr_training, name=rtdetr_cctv_run, exist_ok=False, pretrained=True, optimizer=auto, verbose=True, seed=0, deterministic=True, single_cls=False, rect=False, cos_lr=False, close_mosaic=10, resume=False, amp=True, fraction=1.0, profile=False, freeze=None, multi_scale=False, overlap_mask=True, mask_ratio=4, dropout=0.0, val=True, split=val, save_json=False, conf=None, iou=0.7, max_det=300, half=False, dnn=False, plots=True, source=None, vid_stride=1, stream_buffer=False, visualize=False, augment=False, agnostic_nms=False, classes=None, retina_masks=False, embed=None, show=False, save_frames=False, save_txt=False, save_conf=False, save_crop=False, show_labels=True, show_conf=True, show_boxes=True, line_width=None, format=torchscript, keras=False, optimize=False, int8=False, dynamic=False, simplify=True, opset=None, workspace=None, nms=False, lr0=5e-05, lrf=0.01, momentum=0.937, weight_decay=0.0005, warmup_epochs=3, warmup_momentum=0.8, warmup_bias_lr=0.1, box=7.5, cls=0.5, dfl=1.5, pose=12.0, kobj=1.0, nbs=64, hsv_h=0.015, hsv_s=0.7, hsv_v=0.4, degrees=0.0, translate=0.1, scale=0.5, shear=0.0, perspective=0.0, flipud=0.0, fliplr=0.5, bgr=0.0, mosaic=1.0, mixup=0.0, copy_paste=0.0, copy_paste_mode=flip, auto_augment=randaugment, erasing=0.4, cfg=None, tracker=botsort.yaml, save_dir=cctv_rtdetr_training/rtdetr_cctv_run\n",
+      "Downloading https://ultralytics.com/assets/Arial.ttf to '/root/.config/Ultralytics/Arial.ttf'...\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "100%|██████████| 755k/755k [00:00<00:00, 3.77MB/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Overriding model.yaml nc=80 with nc=3\n",
+      "WARNING ⚠️ no model scale passed. Assuming scale='l'.\n",
+      "\n",
+      "                   from  n    params  module                                       arguments                     \n",
+      "  0                  -1  1     25248  ultralytics.nn.modules.block.HGStem          [3, 32, 48]                   \n",
+      "  1                  -1  6    155072  ultralytics.nn.modules.block.HGBlock         [48, 48, 128, 3, 6]           \n",
+      "  2                  -1  1      1408  ultralytics.nn.modules.conv.DWConv           [128, 128, 3, 2, 1, False]    \n",
+      "  3                  -1  6    839296  ultralytics.nn.modules.block.HGBlock         [128, 96, 512, 3, 6]          \n",
+      "  4                  -1  1      5632  ultralytics.nn.modules.conv.DWConv           [512, 512, 3, 2, 1, False]    \n",
+      "  5                  -1  6   1695360  ultralytics.nn.modules.block.HGBlock         [512, 192, 1024, 5, 6, True, False]\n",
+      "  6                  -1  6   2055808  ultralytics.nn.modules.block.HGBlock         [1024, 192, 1024, 5, 6, True, True]\n",
+      "  7                  -1  6   2055808  ultralytics.nn.modules.block.HGBlock         [1024, 192, 1024, 5, 6, True, True]\n",
+      "  8                  -1  1     11264  ultralytics.nn.modules.conv.DWConv           [1024, 1024, 3, 2, 1, False]  \n",
+      "  9                  -1  6   6708480  ultralytics.nn.modules.block.HGBlock         [1024, 384, 2048, 5, 6, True, False]\n",
+      " 10                  -1  1    524800  ultralytics.nn.modules.conv.Conv             [2048, 256, 1, 1, None, 1, 1, False]\n",
+      " 11                  -1  1    789760  ultralytics.nn.modules.transformer.AIFI      [256, 1024, 8]                \n",
+      " 12                  -1  1     66048  ultralytics.nn.modules.conv.Conv             [256, 256, 1, 1]              \n",
+      " 13                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          \n",
+      " 14                   7  1    262656  ultralytics.nn.modules.conv.Conv             [1024, 256, 1, 1, None, 1, 1, False]\n",
+      " 15            [-2, -1]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           \n",
+      " 16                  -1  3   2232320  ultralytics.nn.modules.block.RepC3           [512, 256, 3]                 \n",
+      " 17                  -1  1     66048  ultralytics.nn.modules.conv.Conv             [256, 256, 1, 1]              \n",
+      " 18                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          \n",
+      " 19                   3  1    131584  ultralytics.nn.modules.conv.Conv             [512, 256, 1, 1, None, 1, 1, False]\n",
+      " 20            [-2, -1]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           \n",
+      " 21                  -1  3   2232320  ultralytics.nn.modules.block.RepC3           [512, 256, 3]                 \n",
+      " 22                  -1  1    590336  ultralytics.nn.modules.conv.Conv             [256, 256, 3, 2]              \n",
+      " 23            [-1, 17]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           \n",
+      " 24                  -1  3   2232320  ultralytics.nn.modules.block.RepC3           [512, 256, 3]                 \n",
+      " 25                  -1  1    590336  ultralytics.nn.modules.conv.Conv             [256, 256, 3, 2]              \n",
+      " 26            [-1, 12]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           \n",
+      " 27                  -1  3   2232320  ultralytics.nn.modules.block.RepC3           [512, 256, 3]                 \n",
+      " 28        [21, 24, 27]  1   7308017  ultralytics.nn.modules.head.RTDETRDecoder    [3, [256, 256, 256]]          \n",
+      "rt-detr-l summary: 457 layers, 32,812,241 parameters, 32,812,241 gradients, 108.0 GFLOPs\n",
+      "\n",
+      "Transferred 926/941 items from pretrained weights\n",
+      "\u001b[34m\u001b[1mAMP: \u001b[0mrunning Automatic Mixed Precision (AMP) checks...\n",
+      "Downloading https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt to 'yolo11n.pt'...\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "100%|██████████| 5.35M/5.35M [00:00<00:00, 19.3MB/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\u001b[34m\u001b[1mAMP: \u001b[0mchecks passed ✅\n",
+      "\u001b[34m\u001b[1mtrain: \u001b[0mFast image access ✅ (ping: 0.1±0.3 ms, read: 26.0±17.9 MB/s, size: 252.3 KB)\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\u001b[34m\u001b[1mtrain: \u001b[0mScanning /kaggle/input/weapon-dataset2/datasets/usrt_yolo/labels/train... 6122 images, 2865 backgrounds, 0 corrupt: 100%|██████████| 6122/6122 [00:16<00:00, 361.50it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "WARNING ⚠️ \u001b[34m\u001b[1mtrain: \u001b[0mCache directory /kaggle/input/weapon-dataset2/datasets/usrt_yolo/labels is not writeable, cache not saved.\n",
+      "\u001b[34m\u001b[1malbumentations: \u001b[0mBlur(p=0.01, blur_limit=(3, 7)), MedianBlur(p=0.01, blur_limit=(3, 7)), ToGray(p=0.01, num_output_channels=3, method='weighted_average'), CLAHE(p=0.01, clip_limit=(1.0, 4.0), tile_grid_size=(8, 8))\n",
+      "\u001b[34m\u001b[1mval: \u001b[0mFast image access ✅ (ping: 0.0±0.0 ms, read: 30.9±22.1 MB/s, size: 309.3 KB)\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\u001b[34m\u001b[1mval: \u001b[0mScanning /kaggle/input/weapon-dataset2/datasets/usrt_yolo/labels/val... 1029 images, 750 backgrounds, 0 corrupt: 100%|██████████| 1029/1029 [00:03<00:00, 304.07it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "WARNING ⚠️ \u001b[34m\u001b[1mval: \u001b[0mCache directory /kaggle/input/weapon-dataset2/datasets/usrt_yolo/labels is not writeable, cache not saved.\n",
+      "Plotting labels to cctv_rtdetr_training/rtdetr_cctv_run/labels.jpg... \n",
+      "\u001b[34m\u001b[1moptimizer:\u001b[0m 'optimizer=auto' found, ignoring 'lr0=5e-05' and 'momentum=0.937' and determining best 'optimizer', 'lr0' and 'momentum' automatically... \n",
+      "\u001b[34m\u001b[1moptimizer:\u001b[0m AdamW(lr=0.001429, momentum=0.9) with parameter groups 143 weight(decay=0.0), 206 weight(decay=0.0005625000000000001), 226 bias(decay=0.0)\n",
+      "Image sizes 640 train, 640 val\n",
+      "Using 4 dataloader workers\n",
+      "Logging results to \u001b[1mcctv_rtdetr_training/rtdetr_cctv_run\u001b[0m\n",
+      "Starting training for 60 epochs...\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       1/60      14.5G      1.128      10.16     0.2652          2        640: 100%|██████████| 341/341 [08:40<00:00,  1.53s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:22<00:00,  1.30it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.591      0.409       0.41      0.124\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       2/60      13.4G     0.7059     0.5605    0.07837          8        640: 100%|██████████| 341/341 [08:35<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.521      0.419      0.393      0.146\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       3/60      14.7G     0.6779     0.5421    0.07459          2        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.686      0.451      0.481      0.168\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       4/60      13.4G     0.6266     0.5246    0.06672          5        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.831      0.519       0.59      0.248\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       5/60      14.5G     0.5573     0.4819    0.05715          1        640: 100%|██████████| 341/341 [08:31<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.38it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.625      0.503      0.499      0.204\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       6/60      13.5G     0.5877     0.5044    0.06095          1        640: 100%|██████████| 341/341 [08:31<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.717      0.553       0.57      0.229\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       7/60      14.7G     0.5684     0.5101    0.05633          6        640: 100%|██████████| 341/341 [08:31<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.38it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.749      0.566      0.594      0.266\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       8/60      13.4G       0.54     0.5113     0.0547          1        640: 100%|██████████| 341/341 [08:31<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.817      0.546      0.625      0.244\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "       9/60      14.6G     0.5342     0.4964    0.05404          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.877      0.564      0.651      0.272\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      10/60      13.5G     0.5047     0.4693    0.04898          2        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.842      0.565      0.617      0.259\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      11/60      14.7G     0.4881      0.461    0.04764          5        640: 100%|██████████| 341/341 [08:31<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.779      0.593      0.643      0.289\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      12/60      13.5G     0.4831     0.4599    0.04688          4        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.802      0.611      0.649      0.276\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      13/60      14.6G     0.5084      0.477    0.05049         18        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.38it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.662       0.58      0.592      0.234\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      14/60      13.4G     0.4723     0.4489    0.04631          4        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.811      0.621      0.676      0.285\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      15/60      14.7G     0.4599     0.4696    0.04492          0        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508       0.83      0.635      0.697      0.303\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      16/60      13.5G     0.4473     0.4543    0.04244          3        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.833      0.655        0.7      0.298\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      17/60      14.6G     0.4395     0.4411    0.04187         10        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.763      0.616      0.665      0.277\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      18/60      13.5G     0.4422     0.4319    0.04266          7        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.673      0.662      0.675      0.296\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      19/60      14.8G     0.4398     0.4378    0.04097          3        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.852      0.573      0.672      0.311\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      20/60      13.5G     0.4222     0.4351    0.03938          1        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.778      0.696      0.698      0.301\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      21/60      14.6G     0.4283      0.453    0.04078          2        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.38it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.766      0.623      0.667      0.271\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      22/60      13.5G     0.4135     0.4257    0.03994          7        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.819       0.67      0.705      0.299\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      23/60      14.8G     0.3953     0.4077    0.03653          3        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.841      0.624        0.7       0.31\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      24/60      13.3G     0.4196     0.4247    0.03938          5        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.841      0.711      0.763      0.317\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      25/60      14.5G     0.4304     0.4495    0.04145         13        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.797      0.651      0.701      0.284\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      26/60      13.4G     0.4041     0.4262    0.03901          1        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.757      0.654      0.676      0.287\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      27/60      14.6G     0.4014     0.4197    0.03927          1        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.834       0.67      0.736      0.319\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      28/60      13.5G     0.3772     0.3937    0.03558          6        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.803      0.694      0.748      0.332\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      29/60      14.7G     0.3967     0.4168    0.03721          2        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.797      0.688      0.712      0.303\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      30/60      13.5G     0.3741     0.4034    0.03491          5        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.783       0.67      0.687      0.283\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      31/60      14.7G     0.3666     0.3901    0.03497          8        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.849      0.581      0.668      0.273\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      32/60      13.5G     0.3761     0.3973    0.03494          3        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508       0.79      0.612      0.687      0.288\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      33/60      14.6G     0.3769     0.3874    0.03558          8        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.36it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.813      0.662      0.725       0.31\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      34/60      13.5G     0.3637     0.3903    0.03415          8        640: 100%|██████████| 341/341 [08:35<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.739      0.625      0.676      0.298\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      35/60      14.8G     0.3537     0.3832    0.03307          1        640: 100%|██████████| 341/341 [08:35<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.36it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.776      0.645      0.728      0.308\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      36/60      13.4G     0.3556     0.3814    0.03227          4        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.765       0.69      0.728      0.331\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      37/60      14.5G     0.3713      0.389    0.03466          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.871      0.718      0.749      0.317\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      38/60      13.4G     0.3477     0.3697    0.03211          0        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508       0.88      0.693      0.759      0.333\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      39/60      14.8G      0.327     0.3603    0.03058          5        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.892       0.73      0.795      0.336\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      40/60      13.4G     0.3271     0.3504    0.03119          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.845      0.647      0.705      0.312\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      41/60      14.6G     0.3324     0.3655    0.03119          4        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.836      0.717      0.772      0.322\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      42/60      13.4G     0.3372     0.3689    0.03053          0        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.855      0.685      0.783      0.326\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      43/60      14.7G      0.312     0.3508     0.0285          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.829      0.743      0.785       0.34\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      44/60      13.4G      0.298     0.3403     0.0264          6        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.874      0.741      0.806      0.344\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      45/60      14.6G      0.298     0.3336    0.02611          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.852       0.74      0.782      0.353\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      46/60      13.5G      0.299     0.3377    0.02703          4        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.848      0.702      0.763       0.34\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      47/60      14.7G     0.2835     0.3298    0.02535         11        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.856      0.714      0.776       0.34\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      48/60      13.4G     0.2762     0.3168    0.02438          5        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.846      0.754      0.798      0.356\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      49/60      14.6G     0.2698     0.3124    0.02384          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.916      0.757      0.821      0.364\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      50/60      13.5G     0.2851     0.3219    0.02507          8        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508       0.89      0.752      0.815      0.347\n",
+      "Closing dataloader mosaic\n",
+      "\u001b[34m\u001b[1malbumentations: \u001b[0mBlur(p=0.01, blur_limit=(3, 7)), MedianBlur(p=0.01, blur_limit=(3, 7)), ToGray(p=0.01, num_output_channels=3, method='weighted_average'), CLAHE(p=0.01, clip_limit=(1.0, 4.0), tile_grid_size=(8, 8))\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      51/60      14.8G     0.2481     0.3049    0.02666          8        640: 100%|██████████| 341/341 [08:34<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.882      0.731      0.813       0.36\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      52/60      13.5G     0.2308     0.2867    0.02419          7        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.882      0.737      0.821      0.364\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      53/60      14.6G     0.2202     0.2747    0.02288          0        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.887      0.753      0.829       0.37\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      54/60      13.5G     0.2146     0.2719     0.0219          1        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.883      0.759      0.814      0.369\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      55/60      14.7G     0.2129      0.269    0.02168          2        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.916      0.705      0.799       0.36\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      56/60      13.5G     0.2066     0.2644    0.02124          0        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.901      0.731      0.808      0.363\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      57/60      14.5G      0.205     0.2582    0.02116          0        640: 100%|██████████| 341/341 [08:32<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508       0.92      0.747      0.822      0.368\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      58/60      13.5G      0.199     0.2551    0.02069          8        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.39it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.906      0.743      0.831       0.37\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      59/60      14.8G     0.1953     0.2481    0.01991          4        640: 100%|██████████| 341/341 [08:33<00:00,  1.50s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:21<00:00,  1.37it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.891      0.738      0.807      0.365\n",
+      "\n",
+      "      Epoch    GPU_mem  giou_loss   cls_loss    l1_loss  Instances       Size\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "  0%|          | 0/341 [00:00<?, ?it/s]/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py:825: UserWarning: grid_sampler_2d_backward_cuda does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)\n",
+      "  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n",
+      "      60/60      13.4G     0.1906     0.2447    0.01931          3        640: 100%|██████████| 341/341 [08:33<00:00,  1.51s/it]\n",
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.40it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.895      0.726        0.8      0.365\n",
+      "\n",
+      "60 epochs completed in 8.938 hours.\n",
+      "Optimizer stripped from cctv_rtdetr_training/rtdetr_cctv_run/weights/last.pt, 66.1MB\n",
+      "Optimizer stripped from cctv_rtdetr_training/rtdetr_cctv_run/weights/best.pt, 66.1MB\n",
+      "\n",
+      "Validating cctv_rtdetr_training/rtdetr_cctv_run/weights/best.pt...\n",
+      "Ultralytics 8.3.115 🚀 Python-3.11.11 torch-2.5.1+cu124 CUDA:0 (Tesla P100-PCIE-16GB, 16269MiB)\n",
+      "rt-detr-l summary: 302 layers, 31,989,905 parameters, 0 gradients, 103.4 GFLOPs\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 29/29 [00:20<00:00,  1.38it/s]\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                   all       1029        508      0.906      0.743      0.832       0.37\n",
+      "                   gun        277        468      0.878      0.766      0.821      0.358\n",
+      "                 knife         40         40      0.935      0.721      0.842      0.383\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/usr/local/lib/python3.11/dist-packages/matplotlib/colors.py:721: RuntimeWarning: invalid value encountered in less\n",
+      "  xa[xa < 0] = -1\n",
+      "/usr/local/lib/python3.11/dist-packages/matplotlib/colors.py:721: RuntimeWarning: invalid value encountered in less\n",
+      "  xa[xa < 0] = -1\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Speed: 0.1ms preprocess, 17.6ms inference, 0.0ms loss, 0.5ms postprocess per image\n",
+      "Results saved to \u001b[1mcctv_rtdetr_training/rtdetr_cctv_run\u001b[0m\n"
+     ]
+    }
+   ],
+   "source": [
+    "from ultralytics import RTDETR\n",
+    "\n",
+    "# Train the model on your CCTV dataset\n",
+    "results = model.train(\n",
+    "    data=\"/kaggle/working/data.yaml\",  # path to your dataset config\n",
+    "    epochs=60,                         # you can increase if needed\n",
+    "    imgsz=640,                         # consider reducing to 512 or 416 if OOM occurs\n",
+    "    batch=18,                           # keep small to avoid OOM\n",
+    "    lr0=5e-5,                          # lower LR for stable convergence\n",
+    "    warmup_epochs=3,\n",
+    "    device=0,                          # use GPU 0\n",
+    "    amp=True,                          # use automatic mixed precision to reduce memory\n",
+    "    name=\"rtdetr_cctv_run\",\n",
+    "    project=\"cctv_rtdetr_training\"\n",
+    ")\n",
+    "\n",
+    "    # epochs=1,\n",
+    "    # imgsz=640,\n",
+    "    # batch=32,\n",
+    "    # lr0=5e-5,\n",
+    "    # warmup_epochs=3,"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "6724e200",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:58:37.100197Z",
+     "iopub.status.busy": "2025-04-24T04:58:37.099906Z",
+     "iopub.status.idle": "2025-04-24T04:58:37.104320Z",
+     "shell.execute_reply": "2025-04-24T04:58:37.103710Z"
+    },
+    "papermill": {
+     "duration": 2.015519,
+     "end_time": "2025-04-24T04:58:37.105449",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:35.089930",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    from ultralytics import YOLO\n",
+    "    \n",
+    "    # Point to your saved checkpoint (automatically created in runs/)\n",
+    "    model = RTDETR(\"/kaggle/working/cctv_rtdetr_training/rtdetr_cctv_run/weights/last.pt\")\n",
+    "    \n",
+    "    # Resume training from that exact point\n",
+    "    model.train(resume=True)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "id": "a04657ed",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:58:40.969683Z",
+     "iopub.status.busy": "2025-04-24T04:58:40.969396Z",
+     "iopub.status.idle": "2025-04-24T04:58:40.973076Z",
+     "shell.execute_reply": "2025-04-24T04:58:40.972490Z"
+    },
+    "papermill": {
+     "duration": 1.839336,
+     "end_time": "2025-04-24T04:58:40.974083",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:39.134747",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:    # Optional: inference after training\n",
+    "    predictions = model(\"path/to/sample_test.jpg\")  # path to your test image\n",
+    "    predictions.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "id": "4c96371d",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:58:44.956490Z",
+     "iopub.status.busy": "2025-04-24T04:58:44.956215Z",
+     "iopub.status.idle": "2025-04-24T04:58:44.959671Z",
+     "shell.execute_reply": "2025-04-24T04:58:44.959109Z"
+    },
+    "papermill": {
+     "duration": 2.015747,
+     "end_time": "2025-04-24T04:58:44.960772",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:42.945025",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    model = RTDETR(\"runs/detect/rtdetr_cctv_run/weights/last.pt\")\n",
+    "    model.train(resume=True)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "75fefd30",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:58:48.771853Z",
+     "iopub.status.busy": "2025-04-24T04:58:48.771350Z",
+     "iopub.status.idle": "2025-04-24T04:58:48.775338Z",
+     "shell.execute_reply": "2025-04-24T04:58:48.774619Z"
+    },
+    "papermill": {
+     "duration": 2.004662,
+     "end_time": "2025-04-24T04:58:48.776423",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:46.771761",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    model = RTDETR(\"runs/detect/rtdetr_cctv_run/weights/best.pt\")\n",
+    "    metrics = model.val(speed=True)  # returns dict of metrics\n",
+    "    print(metrics)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "a04fd836",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:58:52.848968Z",
+     "iopub.status.busy": "2025-04-24T04:58:52.848185Z",
+     "iopub.status.idle": "2025-04-24T04:58:52.852052Z",
+     "shell.execute_reply": "2025-04-24T04:58:52.851485Z"
+    },
+    "papermill": {
+     "duration": 2.083932,
+     "end_time": "2025-04-24T04:58:52.853161",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:50.769229",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    results = model(\"path/to/test_image.jpg\")  # Replace with real path\n",
+    "    results.show()  # Show image with bounding boxes\n",
+    "    results.save(filename=\"predicted.jpg\")  # Save prediction output\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "id": "a32ae0c6",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:58:56.643713Z",
+     "iopub.status.busy": "2025-04-24T04:58:56.643438Z",
+     "iopub.status.idle": "2025-04-24T04:58:56.647341Z",
+     "shell.execute_reply": "2025-04-24T04:58:56.646808Z"
+    },
+    "papermill": {
+     "duration": 1.990122,
+     "end_time": "2025-04-24T04:58:56.648548",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:54.658426",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    for r in results:\n",
+    "        boxes = r.boxes.xyxy  # Get box coordinates\n",
+    "        confs = r.boxes.conf  # Get confidences\n",
+    "        classes = r.boxes.cls  # Get class indices\n",
+    "        print(f\"Detected {len(boxes)} object(s)\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "id": "817d83b1",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:59:00.482306Z",
+     "iopub.status.busy": "2025-04-24T04:59:00.482031Z",
+     "iopub.status.idle": "2025-04-24T04:59:00.485825Z",
+     "shell.execute_reply": "2025-04-24T04:59:00.485088Z"
+    },
+    "papermill": {
+     "duration": 1.821365,
+     "end_time": "2025-04-24T04:59:00.487059",
+     "exception": false,
+     "start_time": "2025-04-24T04:58:58.665694",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    model.export(format=\"engine\", half=True)  # TensorRT with FP16\n",
+    "    # Alternatives:\n",
+    "    # model.export(format=\"onnx\")\n",
+    "    # model.export(format=\"torchscript\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "id": "42a6c9b3",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:59:04.434101Z",
+     "iopub.status.busy": "2025-04-24T04:59:04.433811Z",
+     "iopub.status.idle": "2025-04-24T04:59:04.437551Z",
+     "shell.execute_reply": "2025-04-24T04:59:04.436945Z"
+    },
+    "papermill": {
+     "duration": 1.987446,
+     "end_time": "2025-04-24T04:59:04.438588",
+     "exception": false,
+     "start_time": "2025-04-24T04:59:02.451142",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    results = model.predict(source=\"path/to/folder/\", save=True, imgsz=640)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ddd7cd02",
+   "metadata": {
+    "papermill": {
+     "duration": 1.811473,
+     "end_time": "2025-04-24T04:59:08.218011",
+     "exception": false,
+     "start_time": "2025-04-24T04:59:06.406538",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## Comparison"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "id": "a94e2f42",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:59:12.146502Z",
+     "iopub.status.busy": "2025-04-24T04:59:12.146205Z",
+     "iopub.status.idle": "2025-04-24T04:59:12.151759Z",
+     "shell.execute_reply": "2025-04-24T04:59:12.151241Z"
+    },
+    "papermill": {
+     "duration": 1.962163,
+     "end_time": "2025-04-24T04:59:12.152832",
+     "exception": false,
+     "start_time": "2025-04-24T04:59:10.190669",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "## 1 Compare YOLO v11 vs RT‑DETR on the same val split\n",
+    "    # Change the paths to trained models\n",
+    "    \n",
+    "    # Load models\n",
+    "    yolo11 = YOLO(\"runs/detect/train/weights/best.pt\")\n",
+    "    rtdetr = YOLO(\"runs/detect/train_rtdetr/weights/best.pt\")\n",
+    "    \n",
+    "    # Shared val‑set\n",
+    "    DATA = \"datasets/usrt_yolo/data.yaml\"    # points to images/val, names: [...]\n",
+    "    \n",
+    "    # Run validation and grab per‑class metrics\n",
+    "    y11_metrics  = yolo11.val(data=DATA, save_json=True, verbose=False)\n",
+    "    rt_metrics   = rtdetr.val(data=DATA, save_json=True, verbose=False)\n",
+    "    \n",
+    "    print(\"YOLOv11  mAP50‑95:\", y11_metrics.box.map)\n",
+    "    print(\"RT‑DETR  mAP50‑95:\", rt_metrics.box.map)\n",
+    "    \n",
+    "    # Plot PR curves side‑by‑side\n",
+    "    import matplotlib.pyplot as plt\n",
+    "    fig, ax = plt.subplots()\n",
+    "    for m, lbl in [(y11_metrics, \"YOLOv11\"), (rt_metrics, \"RT‑DETR\")]:\n",
+    "        p, r = m.box.pr  # precision, recall arrays\n",
+    "        ax.plot(r, p, label=lbl)\n",
+    "    ax.set_xlabel(\"Recall\"); ax.set_ylabel(\"Precision\")\n",
+    "    ax.set_title(\"PR curve – CCTV weapons\"); ax.legend(); plt.show()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "id": "69d5a58b",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:59:15.952180Z",
+     "iopub.status.busy": "2025-04-24T04:59:15.951907Z",
+     "iopub.status.idle": "2025-04-24T04:59:15.956177Z",
+     "shell.execute_reply": "2025-04-24T04:59:15.955434Z"
+    },
+    "papermill": {
+     "duration": 1.826841,
+     "end_time": "2025-04-24T04:59:15.957476",
+     "exception": false,
+     "start_time": "2025-04-24T04:59:14.130635",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    ## 2 Export the RT‑DETR model to ONNX / TensorRT\n",
+    "    # Export ONNX (fp16); Ultralytics auto‑creates best.onnx\n",
+    "    onnx_file = rtdetr.export(format=\"onnx\", half=True)[\"file\"]\n",
+    "    \n",
+    "    # Optional: export TensorRT (FP16)\n",
+    "    trt_file  = rtdetr.export(format=\"engine\", half=True)[\"file\"]\n",
+    "    print(\"ONNX:\", onnx_file, \"\\nTensorRT:\", trt_file)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "id": "a8546f17",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:59:19.911121Z",
+     "iopub.status.busy": "2025-04-24T04:59:19.910292Z",
+     "iopub.status.idle": "2025-04-24T04:59:19.915369Z",
+     "shell.execute_reply": "2025-04-24T04:59:19.914839Z"
+    },
+    "papermill": {
+     "duration": 1.997709,
+     "end_time": "2025-04-24T04:59:19.916443",
+     "exception": false,
+     "start_time": "2025-04-24T04:59:17.918734",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "    ## 3 Quick explainability – show transformer attention maps\n",
+    "    \n",
+    "    import torch\n",
+    "    import matplotlib.pyplot as plt\n",
+    "    \n",
+    "    # pick one CCTV frame\n",
+    "    sample = \"datasets/usrt_yolo/images/val/000123.jpg\"\n",
+    "    im     = rtdetr.predict(source=sample, verbose=False, save=False, retina_masks=False)\n",
+    "    \n",
+    "    # attn_weights is [layers × heads × queries × keys]\n",
+    "    attn = rtdetr.model.model.head.attn_weights[-1]          # last decoder layer\n",
+    "    # pick query 0 (highest‑confidence bbox) and head 0\n",
+    "    heatmap = attn[0, 0].reshape(rtdetr.model.imgsz//32, -1) # coarse 20×20 grid\n",
+    "    \n",
+    "    plt.imshow(heatmap.cpu(), cmap=\"hot\")\n",
+    "    plt.title(\"Decoder‑layer‑6 Head‑0 attention\")\n",
+    "    plt.colorbar(); plt.show()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "id": "dcb18ccd",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-04-24T04:59:23.827665Z",
+     "iopub.status.busy": "2025-04-24T04:59:23.826922Z",
+     "iopub.status.idle": "2025-04-24T04:59:23.833179Z",
+     "shell.execute_reply": "2025-04-24T04:59:23.832487Z"
+    },
+    "papermill": {
+     "duration": 1.919912,
+     "end_time": "2025-04-24T04:59:23.834314",
+     "exception": false,
+     "start_time": "2025-04-24T04:59:21.914402",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "RUN_TRAINING = False\n",
+    "if RUN_TRAINING:\n",
+    "        ## 4 Cross‑dataset evaluation on the CCTV‑Gun / UCF split\n",
+    "    \n",
+    "    # ❶ Create a mini data.yaml for UCF split (one‑off)\n",
+    "    from pathlib import Path, textwrap\n",
+    "    Path(\"data_ucf.yaml\").write_text(textwrap.dedent(\"\"\"\n",
+    "        path: datasets/cctv_gun_ucf\n",
+    "        train: images/train\n",
+    "        val: images/val\n",
+    "        names: [gun]            # only one class in this split\n",
+    "    \"\"\"))\n",
+    "    \n",
+    "    # ❷ Validate both detectors\n",
+    "    y11_ucf  = yolo11.val(data=\"data_ucf.yaml\", conf=0.001, verbose=False)\n",
+    "    rt_ucf   = rtdetr.val(data=\"data_ucf.yaml\", conf=0.001, verbose=False)\n",
+    "    \n",
+    "    print(\"Cross‑dataset mAP@50 (guns only)\")\n",
+    "    print(f\"YOLOv11 : {y11_ucf.box.map50*100:.1f}%\")\n",
+    "    print(f\"RT‑DETR : {rt_ucf.box.map50*100:.1f}%\")\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kaggle": {
+   "accelerator": "gpu",
+   "dataSources": [
+    {
+     "datasetId": 7223064,
+     "sourceId": 11517535,
+     "sourceType": "datasetVersion"
+    },
+    {
+     "datasetId": 7223853,
+     "sourceId": 11518520,
+     "sourceType": "datasetVersion"
+    },
+    {
+     "modelId": 314559,
+     "modelInstanceId": 293932,
+     "sourceId": 352300,
+     "sourceType": "modelInstanceVersion"
+    },
+    {
+     "isSourceIdPinned": true,
+     "modelId": 314776,
+     "modelInstanceId": 294157,
+     "sourceId": 352621,
+     "sourceType": "modelInstanceVersion"
+    }
+   ],
+   "dockerImageVersionId": 31012,
+   "isGpuEnabled": true,
+   "isInternetEnabled": true,
+   "language": "python",
+   "sourceType": "notebook"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.11"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 32417.117214,
+   "end_time": "2025-04-24T04:59:28.975574",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "__notebook__.ipynb",
+   "output_path": "__notebook__.ipynb",
+   "parameters": {},
+   "start_time": "2025-04-23T19:59:11.858360",
+   "version": "2.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
